@@ -79,6 +79,13 @@ class SendReportBody(BaseModel):
     patient_id: int
 
 
+class FinalizeReportPdfBody(BaseModel):
+    report_id: int
+    findings_paragraph: str
+    analysis_paragraph: str
+    probs_paragraph: str | None = None
+
+
 def _png_file_data_uri(path: str) -> str:
     with open(path, "rb") as handle:
         b64 = base64.standard_b64encode(handle.read()).decode("ascii")
@@ -1298,5 +1305,51 @@ def send_report_to_patient(
         "report_id": report.id,
         "scan_id": scan.id,
         "patient_id": body.patient_id,
+        "file_url": f"/reports/{report.id}",
+    }
+
+
+@core_router.post("/finalize-report-pdf")
+def finalize_report_pdf(
+    body: FinalizeReportPdfBody,
+    db: Session = Depends(get_db),
+    current=Depends(role_required("doctor", "admin")),
+):
+    """
+    Mobile compatibility endpoint.
+    Some mobile builds call `/api/finalize-report-pdf` after `/api/generate-report`
+    to update report narrative paragraphs before sending to patient.
+    """
+    report = db.query(Report).filter(Report.id == body.report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    diagnosis = db.query(Diagnosis).filter(Diagnosis.id == report.diagnosis_id).first()
+    if not diagnosis:
+        raise HTTPException(status_code=404, detail="Diagnosis not found for this report")
+
+    scan = db.query(MRIScan).filter(MRIScan.id == diagnosis.scan_id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    if scan.doctor_id != current.id and (current.role or "").lower() != "admin":
+        raise HTTPException(status_code=403, detail="Unauthorized: You are not assigned to this scan")
+
+    parts = [body.findings_paragraph.strip(), body.analysis_paragraph.strip()]
+    if body.probs_paragraph and body.probs_paragraph.strip():
+        parts.append(body.probs_paragraph.strip())
+    report.summary = "\n\n".join([p for p in parts if p]) or report.summary
+    report.recommendation = (
+        "AI-assisted report finalized from mobile workflow. "
+        "Correlate findings with clinical examination."
+    )
+    db.add(report)
+    db.commit()
+    db.refresh(report)
+
+    return {
+        "message": "Report finalized successfully",
+        "report_id": report.id,
+        "scan_id": scan.id,
         "file_url": f"/reports/{report.id}",
     }

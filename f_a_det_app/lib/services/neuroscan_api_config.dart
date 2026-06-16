@@ -26,8 +26,8 @@ class NeuroscanApiConfig {
   /// True when web should call the LAN URL from `NEUROSCAN_API_URL` (API not on this PC).
   static bool get webUseLan => _webUseLan;
 
-  /// Android emulator reaches the host via `10.0.2.2`. On a physical device,
-  /// use `--dart-define=NEUROSCAN_API_URL=http://<PC_LAN_IP>:8000`.
+  /// For physical Android device (USB), use your PC LAN IP.
+  /// (If you rebuild APKs after changing PC IP, update this value.)
   static String get baseUrl {
     final String raw;
     if (_dartDefine.isNotEmpty) {
@@ -35,7 +35,7 @@ class NeuroscanApiConfig {
     } else if (kIsWeb) {
       raw = 'http://127.0.0.1:8000';
     } else if (defaultTargetPlatform == TargetPlatform.android) {
-      raw = 'http://10.0.2.2:8000';
+      raw = 'http://172.20.10.2:8000';
     } else {
       raw = 'http://127.0.0.1:8000';
     }

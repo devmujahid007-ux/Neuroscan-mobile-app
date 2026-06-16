@@ -580,8 +580,10 @@ def upload_patient_mri_zip_only(
 
 
 @router.post("/upload-alz-image", response_model=MRIScanOut)
+@router.post("/upload-alzheimer-png", response_model=MRIScanOut)
 def upload_alzheimer_patient_image(
-    image: UploadFile = File(..., description="PNG or JPEG brain MRI slice / image"),
+    image: Optional[UploadFile] = File(default=None, description="PNG or JPEG brain MRI slice / image"),
+    mri_png: Optional[UploadFile] = File(default=None, description="Mobile alias for Alzheimer image upload"),
     doctor_id: int = Form(...),
     db: Session = Depends(get_db),
     current=Depends(role_required("patient")),
@@ -590,7 +592,14 @@ def upload_alzheimer_patient_image(
     Patient-only: upload a single image for Alzheimer detection (not the tumor ZIP pipeline).
     Stored under ``uploads/scans/<id>/`` and queued to the selected doctor (status ``sent``).
     """
-    name = (image.filename or "").strip().lower()
+    upload = image or mri_png
+    if upload is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Image file is required (form field: image or mri_png).",
+        )
+
+    name = (upload.filename or "").strip().lower()
     ext = ""
     if name.endswith(".jpeg"):
         ext = ".jpeg"
@@ -615,7 +624,7 @@ def upload_alzheimer_patient_image(
     if not doctor:
         raise HTTPException(status_code=404, detail="Doctor not found")
 
-    raw = image.file.read()
+    raw = upload.file.read()
     if not raw:
         raise HTTPException(status_code=400, detail="Image file is empty")
     if len(raw) > MAX_ALZ_IMAGE_BYTES:
@@ -624,7 +633,7 @@ def upload_alzheimer_patient_image(
             detail=f"Image too large (max {MAX_ALZ_IMAGE_BYTES // (1024 * 1024)} MB)",
         )
 
-    display_name = (image.filename or "").strip() or f"alz_upload{ext}"
+    display_name = (upload.filename or "").strip() or f"alz_upload{ext}"
     scan = MRIScan(
         patient_id=current.id,
         doctor_id=doctor.id,

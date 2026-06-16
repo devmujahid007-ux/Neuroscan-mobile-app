@@ -1,5 +1,0 @@
-{
-  "dart.flutterRunAdditionalArgs": [
-    "--no-web-resources-cdn"
-  ]
-}
