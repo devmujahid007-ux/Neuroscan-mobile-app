@@ -1,4 +1,4 @@
-# NeuroScan Mobile (f_a_det_app)
+# NeuroScan Mobile App
 
 NeuroScan is a research/demo application combining a Flutter front-end (`f_a_det_app`) with a Python backend (`backend/`) for medical image analysis (MRI) and report generation. This README covers quick setup, running locally, and useful scripts.
 
